@@ -106,6 +106,10 @@ temp/
 *.sqlite
 *.sqlite3
 
+# Hospital directory source and generated extracts
+data/raw/
+data/processed/
+
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 

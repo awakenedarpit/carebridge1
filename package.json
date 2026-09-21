@@ -10,7 +10,10 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "hospitals:extract": "mkdir -p data/processed && osmium tags-filter data/raw/india-latest.osm.pbf nwr/amenity=hospital -o data/processed/india-hospitals.osm.pbf --overwrite && osmium export data/processed/india-hospitals.osm.pbf -o data/processed/india-hospitals.geojson --overwrite",
+    "hospitals:import": "tsx scripts/import-osm-hospitals.ts",
+    "hospitals:dry-run": "tsx scripts/import-osm-hospitals.ts --dry-run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

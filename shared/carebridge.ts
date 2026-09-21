@@ -40,7 +40,7 @@ export interface Hospital {
   address: string;
   latitude: number;
   longitude: number;
-  phone: string;
+  phone: string | null;
   emergencyAvailable: boolean;
   status: "TRUSTED_RESOURCE" | "UNVERIFIED";
   capabilities: CareCategory[];

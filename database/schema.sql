@@ -14,16 +14,24 @@ CREATE TABLE IF NOT EXISTS hospitals (
   id VARCHAR(64) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   address TEXT NOT NULL,
+  city VARCHAR(120) NULL,
+  state VARCHAR(120) NULL,
+  postal_code VARCHAR(24) NULL,
   latitude DOUBLE NOT NULL,
   longitude DOUBLE NOT NULL,
-  phone VARCHAR(32) NOT NULL,
+  phone VARCHAR(64) NULL,
+  website TEXT NULL,
   emergency_available BOOLEAN NOT NULL DEFAULT FALSE,
   status ENUM('TRUSTED_RESOURCE','UNVERIFIED') NOT NULL DEFAULT 'UNVERIFIED',
   capabilities TEXT NOT NULL,
   is_verified BOOLEAN NOT NULL DEFAULT FALSE,
   last_verified_at TIMESTAMP NOT NULL,
   source_url TEXT NOT NULL,
-  source_label VARCHAR(255) NOT NULL
+  source_label VARCHAR(255) NOT NULL,
+  data_source ENUM('official','openstreetmap') NOT NULL DEFAULT 'official',
+  osm_type VARCHAR(16) NULL,
+  osm_id VARCHAR(32) NULL,
+  UNIQUE KEY hospitals_osm_source (osm_type, osm_id)
 );
 
 CREATE TABLE IF NOT EXISTS doctors (

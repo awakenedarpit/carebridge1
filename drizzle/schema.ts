@@ -16,9 +16,13 @@ export const hospitals = mysqlTable("hospitals", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address").notNull(),
+  city: varchar("city", { length: 120 }),
+  state: varchar("state", { length: 120 }),
+  postalCode: varchar("postal_code", { length: 24 }),
   latitude: double("latitude").notNull(),
   longitude: double("longitude").notNull(),
-  phone: varchar("phone", { length: 32 }).notNull(),
+  phone: varchar("phone", { length: 64 }),
+  website: text("website"),
   emergencyAvailable: tinyint("emergencyAvailable").notNull().default(0),
   status: mysqlEnum("status", ["TRUSTED_RESOURCE", "UNVERIFIED"]).notNull().default("UNVERIFIED"),
   capabilities: text("capabilities").notNull(),
@@ -26,6 +30,9 @@ export const hospitals = mysqlTable("hospitals", {
   lastVerifiedAt: timestamp("lastVerifiedAt").notNull(),
   sourceUrl: text("sourceUrl").notNull(),
   sourceLabel: varchar("sourceLabel", { length: 255 }).notNull(),
+  dataSource: mysqlEnum("data_source", ["official", "openstreetmap"]).notNull().default("official"),
+  osmType: varchar("osm_type", { length: 16 }),
+  osmId: varchar("osm_id", { length: 32 }),
 });
 
 export const doctors = mysqlTable("doctors", {
