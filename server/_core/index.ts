@@ -12,6 +12,7 @@ import { buildRecommendationFromDatabase, getDoctorRecommendationsFromDatabase, 
 import { getIncident } from "../services/incidentStore";
 import { logAction } from "../services/actionLog";
 import { findNearbyHospitals } from "../services/openStreetMap";
+import { reverseGeocode } from "../services/reverseGeocode";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -62,6 +63,16 @@ async function startServer() {
     const latitude = numberQuery(req.query.latitude, 12.9716);
     const longitude = numberQuery(req.query.longitude, 77.5946);
     return res.json(await getFacilityRecommendationsFromDatabase({ latitude, longitude, category: typeof req.query.category === "string" ? req.query.category as never : undefined }));
+  });
+
+  app.get("/api/location/reverse-geocode", async (req, res) => {
+    const latitude = numberQuery(req.query.latitude, Number.NaN);
+    const longitude = numberQuery(req.query.longitude, Number.NaN);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ error: "Valid latitude and longitude are required" });
+    }
+    const address = await reverseGeocode(latitude, longitude);
+    return res.json({ address });
   });
 
   app.get("/api/facilities/directory", async (req, res) => {

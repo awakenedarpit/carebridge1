@@ -2,6 +2,8 @@
 
 CareBridge uses the public OpenStreetMap Overpass API for location-specific nearby-hospital discovery. The web API sends a POST-encoded query for every incident location, including the Bengaluru demo location, and also exposes `/api/facilities/directory?latitude=…&longitude=…` for direct nearby-directory access. It searches a 15 km radius, parses named nodes/ways/relations, deduplicates by name, and sorts by haversine distance.
 
+Browser coordinates are reverse-geocoded through `/api/location/reverse-geocode`. The server first tries OpenStreetMap Nominatim and then falls back to BigDataCloud’s no-key client reverse-geocoding endpoint, so the interface can show a readable locality/state/country label while retaining the exact coordinates internally for matching.
+
 Official references:
 
 - [OpenStreetMap Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API)

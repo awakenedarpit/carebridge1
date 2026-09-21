@@ -67,6 +67,12 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Location lookup failed");
+  return response.json() as Promise<T>;
+}
+
 function urgencyClasses(urgency: Recommendation["incident"]["urgency"]) {
   if (urgency === "EMERGENCY") return "bg-[#e8505b] text-white";
   if (urgency === "URGENT") return "bg-[#f59e0b] text-[#3e2600]";
@@ -147,14 +153,18 @@ export default function Home() {
     setLocation(null);
     setLocationNotice("Requesting your location… allow permission when your browser asks.");
     navigator.geolocation.getCurrentPosition(
-      position => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          label: "Current browser location",
-          source: "browser",
-        });
-        setLocationNotice("Location fetched successfully. It will be used for approximate matching.");
+      async position => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        let label = "Address unavailable · current browser location";
+        try {
+          const result = await getJson<{ address: string | null }>(`/api/location/reverse-geocode?latitude=${latitude}&longitude=${longitude}`);
+          if (result.address) label = result.address;
+        } catch {
+          // Coordinates remain available internally for matching if address lookup is unavailable.
+        }
+        setLocation({ latitude, longitude, label, source: "browser" });
+        setLocationNotice(label.startsWith("Address unavailable") ? "Location fetched. The address could not be resolved, but it will still be used for approximate matching." : "Current address fetched successfully. It will be used for approximate matching.");
         setIsLocating(false);
       },
       error => {
@@ -408,7 +418,7 @@ function ReportScreen(props: {
           <button className={`absolute bottom-4 right-4 grid h-11 w-11 place-items-center rounded-full ${props.isListening ? "bg-[#e8505b] text-white" : "bg-[#dcebe0] text-[#286252]"}`} onClick={props.onVoice} aria-label={props.isListening ? "Stop listening" : "Speak your concern"}>{props.isListening ? <StopCircle size={20} /> : <Mic size={20} />}</button>
         </div>
         <div className="mt-3 flex items-start gap-2 text-xs font-semibold text-[#79827f]"><Mic size={14} className="mt-0.5 shrink-0" /><span>{props.voiceNotice || "Voice works in supported browsers over HTTPS. Allow microphone access when prompted."} · <button onClick={() => document.getElementById("incident-report")?.focus()} className="text-[#2e8069]">Type instead</button></span></div>
-        <div className="mt-7 border-t border-[#ebe7df] pt-5"><div className="flex items-center justify-between gap-4"><div><p className="cb-label">Your location</p><p className="mt-1 text-sm text-[#65716d]">{props.locationNotice}</p></div><button className="cb-location-button" onClick={props.onLocation} disabled={props.isLocating}>{props.isLocating ? <RefreshCw size={16} className="animate-spin" /> : <LocateFixed size={16} />} {props.isLocating ? "Fetching" : props.location ? "Refresh location" : "Use my location"}</button></div>{props.location ? <div className="mt-3 rounded-xl bg-[#f3f7ef] px-3 py-2 text-xs font-bold text-[#47705b]"><div className="flex items-center gap-2"><MapPin size={14} /> {props.location.label}</div><p className="mt-1 pl-5 font-medium text-[#62806d]">{props.location.latitude.toFixed(5)}, {props.location.longitude.toFixed(5)}</p></div> : <div className="mt-3 rounded-xl border border-dashed border-[#d9d5cc] bg-[#faf9f5] px-3 py-3 text-xs font-semibold text-[#7b827e]">No location fetched yet. Your location will appear here after permission is granted.</div>}</div>
+        <div className="mt-7 border-t border-[#ebe7df] pt-5"><div className="flex items-center justify-between gap-4"><div><p className="cb-label">Your location</p><p className="mt-1 text-sm text-[#65716d]">{props.locationNotice}</p></div><button className="cb-location-button" onClick={props.onLocation} disabled={props.isLocating}>{props.isLocating ? <RefreshCw size={16} className="animate-spin" /> : <LocateFixed size={16} />} {props.isLocating ? "Fetching" : props.location ? "Refresh location" : "Use my location"}</button></div>{props.location ? <div className="mt-3 rounded-xl bg-[#f3f7ef] px-3 py-2 text-xs font-bold text-[#47705b]"><div className="flex items-center gap-2"><MapPin size={14} /> {props.location.label}</div><p className="mt-1 pl-5 font-medium text-[#62806d]">{props.location.label}</p></div> : <div className="mt-3 rounded-xl border border-dashed border-[#d9d5cc] bg-[#faf9f5] px-3 py-3 text-xs font-semibold text-[#7b827e]">No location fetched yet. Your location will appear here after permission is granted.</div>}</div>
         {props.error && <div className="mt-5 rounded-xl border border-[#f5b8b8] bg-[#fff3f2] px-4 py-3 text-sm font-semibold text-[#a7383f]">{props.error}</div>}
         <button className="cb-primary-action mt-7 w-full justify-center" onClick={props.onSubmit} disabled={props.isSubmitting}>{props.isSubmitting ? <><RefreshCw size={20} className="animate-spin" /> Building your handoff…</> : <>Continue to safe next steps <ArrowRight size={19} /></>}</button>
       </div>
