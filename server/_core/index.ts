@@ -47,9 +47,7 @@ async function startServer() {
       const { rawText, patientRelation, location } = req.body ?? {};
       if (typeof rawText !== "string" || rawText.trim().length === 0) return res.status(400).json({ error: "rawText is required" });
       const recommendation = await buildRecommendationFromDatabase({ rawText, patientRelation, location });
-      const liveFacilities = recommendation.location.source === "browser" || recommendation.location.source === "manual"
-        ? await findNearbyHospitals(recommendation.location.latitude, recommendation.location.longitude)
-        : [];
+      const liveFacilities = await findNearbyHospitals(recommendation.location.latitude, recommendation.location.longitude);
       const fallbackMessage = liveFacilities.length > 0
         ? "Live emergency capacity unavailable. Showing nearby OpenStreetMap listings and cached verified resources."
         : recommendation.fallbackMessage;
@@ -69,7 +67,8 @@ async function startServer() {
   app.get("/api/facilities/directory", async (req, res) => {
     const latitude = numberQuery(req.query.latitude, 12.9716);
     const longitude = numberQuery(req.query.longitude, 77.5946);
-    return res.json(await getHospitalDirectoryFromDatabase({ latitude, longitude }));
+    const liveFacilities = await findNearbyHospitals(latitude, longitude, 20);
+    return res.json(liveFacilities.length > 0 ? liveFacilities : await getHospitalDirectoryFromDatabase({ latitude, longitude }));
   });
 
   app.get("/api/doctors/recommendations", async (req, res) => {

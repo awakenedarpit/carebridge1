@@ -1,6 +1,6 @@
 # Free Nearby Hospital Data
 
-CareBridge uses the public OpenStreetMap Overpass API for location-specific nearby-hospital discovery when the user supplies browser or manual coordinates. The implementation uses the Overpass interpreter endpoint, sends a POST-encoded query, searches a 15 km radius, parses named nodes/ways/relations, deduplicates by name, and sorts by haversine distance.
+CareBridge uses the public OpenStreetMap Overpass API for location-specific nearby-hospital discovery. The web API sends a POST-encoded query for every incident location, including the Bengaluru demo location, and also exposes `/api/facilities/directory?latitude=…&longitude=…` for direct nearby-directory access. It searches a 15 km radius, parses named nodes/ways/relations, deduplicates by name, and sorts by haversine distance.
 
 Official references:
 

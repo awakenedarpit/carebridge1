@@ -25,9 +25,9 @@ function parseHospital(element: any, index: number, latitudeOrigin: number, long
   const latitude = asNumber(element.lat ?? element.center?.lat);
   const longitude = asNumber(element.lon ?? element.center?.lon);
   if (!tags.name || latitude === null || longitude === null) return null;
-  const phone = tags.phone || tags["contact:phone"] || "Not listed";
-  const address = [tags["addr:housenumber"], tags["addr:street"], tags["addr:city"], tags["addr:state"]].filter(Boolean).join(", ") || "Address not listed in OpenStreetMap";
-  const website = tags.website || tags["contact:website"] || "https://www.openstreetmap.org/";
+  const phone = tags.phone || tags["contact:phone"] || null;
+  const address = [tags["addr:housenumber"], tags["addr:street"], tags["addr:city"], tags["addr:state"], tags["addr:postcode"]].filter(Boolean).join(", ") || "Address not listed in OpenStreetMap";
+  const sourceUrl = `https://www.openstreetmap.org/${element.type}/${element.id}`;
   const emergency = [tags.emergency, tags["healthcare:speciality"], tags["healthcare:speciality:emergency"], tags["hospital:type"]].filter(Boolean).join(" ").toLowerCase().includes("emergency");
   return {
     id: `osm-${element.type}-${element.id ?? index}`,
@@ -35,13 +35,13 @@ function parseHospital(element: any, index: number, latitudeOrigin: number, long
     address,
     latitude,
     longitude,
-    phone: String(phone),
+    phone: phone ? String(phone) : null,
     emergencyAvailable: emergency,
     status: "UNVERIFIED",
     capabilities: ["GENERAL", "MEDICAL_EMERGENCY"],
     isVerified: false,
     lastVerifiedAt: new Date().toISOString(),
-    sourceUrl: website,
+    sourceUrl,
     sourceLabel: "OpenStreetMap community data",
     dataSource: "openstreetmap",
     distanceKm: distanceKm(latitudeOrigin, longitudeOrigin, latitude, longitude),
