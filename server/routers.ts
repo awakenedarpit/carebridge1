@@ -3,7 +3,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { buildRecommendation, getDoctorRecommendations, getFacilityRecommendations } from "./services/carebridgeEngine";
+import { buildRecommendationFromDatabase, getDoctorRecommendationsFromDatabase, getFacilityRecommendationsFromDatabase } from "./services/carebridgeEngine";
 import { logAction } from "./services/actionLog";
 import { getIncident } from "./services/incidentStore";
 
@@ -25,14 +25,14 @@ export const appRouter = router({
     }),
   }),
   incident: router({
-    create: publicProcedure.input(z.object({ rawText: z.string().min(1), patientRelation: z.string().optional(), location: locationInput })).mutation(({ input }) => buildRecommendation(input)),
+    create: publicProcedure.input(z.object({ rawText: z.string().min(1), patientRelation: z.string().optional(), location: locationInput })).mutation(({ input }) => buildRecommendationFromDatabase(input)),
     get: publicProcedure.input(z.object({ incidentId: z.string() })).query(({ input }) => getIncident(input.incidentId)),
   }),
   facilities: router({
-    recommendations: publicProcedure.input(z.object({ latitude: z.number(), longitude: z.number(), category: z.string().optional() })).query(({ input }) => getFacilityRecommendations(input as Parameters<typeof getFacilityRecommendations>[0])),
+    recommendations: publicProcedure.input(z.object({ latitude: z.number(), longitude: z.number(), category: z.string().optional() })).query(({ input }) => getFacilityRecommendationsFromDatabase(input as Parameters<typeof getFacilityRecommendationsFromDatabase>[0])),
   }),
   doctors: router({
-    recommendations: publicProcedure.input(z.object({ hospitalId: z.string(), category: z.string().optional() })).query(({ input }) => getDoctorRecommendations(input as Parameters<typeof getDoctorRecommendations>[0])),
+    recommendations: publicProcedure.input(z.object({ hospitalId: z.string(), category: z.string().optional() })).query(({ input }) => getDoctorRecommendationsFromDatabase(input as Parameters<typeof getDoctorRecommendationsFromDatabase>[0])),
   }),
   emergency: router({
     recommendation: publicProcedure.input(z.object({ incidentId: z.string() })).query(({ input }) => getIncident(input.incidentId)),

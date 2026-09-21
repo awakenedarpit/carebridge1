@@ -8,7 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { buildRecommendation, getDoctorRecommendations, getFacilityRecommendations } from "../services/carebridgeEngine";
+import { buildRecommendationFromDatabase, getDoctorRecommendationsFromDatabase, getFacilityRecommendationsFromDatabase, getHospitalDirectoryFromDatabase } from "../services/carebridgeEngine";
 import { getIncident } from "../services/incidentStore";
 import { logAction } from "../services/actionLog";
 import { findNearbyHospitals } from "../services/openStreetMap";
@@ -46,7 +46,7 @@ async function startServer() {
     try {
       const { rawText, patientRelation, location } = req.body ?? {};
       if (typeof rawText !== "string" || rawText.trim().length === 0) return res.status(400).json({ error: "rawText is required" });
-      const recommendation = buildRecommendation({ rawText, patientRelation, location });
+      const recommendation = await buildRecommendationFromDatabase({ rawText, patientRelation, location });
       const liveFacilities = recommendation.location.source === "browser" || recommendation.location.source === "manual"
         ? await findNearbyHospitals(recommendation.location.latitude, recommendation.location.longitude)
         : [];
@@ -60,15 +60,21 @@ async function startServer() {
     }
   });
 
-  app.get("/api/facilities/recommendations", (req, res) => {
+  app.get("/api/facilities/recommendations", async (req, res) => {
     const latitude = numberQuery(req.query.latitude, 12.9716);
     const longitude = numberQuery(req.query.longitude, 77.5946);
-    return res.json(getFacilityRecommendations({ latitude, longitude, category: typeof req.query.category === "string" ? req.query.category as never : undefined }));
+    return res.json(await getFacilityRecommendationsFromDatabase({ latitude, longitude, category: typeof req.query.category === "string" ? req.query.category as never : undefined }));
   });
 
-  app.get("/api/doctors/recommendations", (req, res) => {
+  app.get("/api/facilities/directory", async (req, res) => {
+    const latitude = numberQuery(req.query.latitude, 12.9716);
+    const longitude = numberQuery(req.query.longitude, 77.5946);
+    return res.json(await getHospitalDirectoryFromDatabase({ latitude, longitude }));
+  });
+
+  app.get("/api/doctors/recommendations", async (req, res) => {
     const hospitalId = typeof req.query.hospitalId === "string" ? req.query.hospitalId : "";
-    return res.json(getDoctorRecommendations({ hospitalId, category: typeof req.query.category === "string" ? req.query.category as never : undefined }));
+    return res.json(await getDoctorRecommendationsFromDatabase({ hospitalId, category: typeof req.query.category === "string" ? req.query.category as never : undefined }));
   });
 
   app.get("/api/emergency/recommendation/:incidentId", (req, res) => {
