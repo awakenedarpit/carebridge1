@@ -3,9 +3,10 @@ import type { Hospital } from "../../shared/carebridge";
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
 ];
-const LOOKUP_TIMEOUT_MS = 12000;
-const SEARCH_RADIUS_METERS = 15000;
+const LOOKUP_TIMEOUT_MS = 9000;
+const SEARCH_RADIUS_METERS = 10000;
 
 function asNumber(value: unknown) {
   const parsed = Number(value);
@@ -51,7 +52,7 @@ function parseHospital(element: any, index: number, latitudeOrigin: number, long
 export async function findNearbyHospitals(latitude: number, longitude: number, limit = 8): Promise<Hospital[]> {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
   const around = `(around:${SEARCH_RADIUS_METERS},${latitude},${longitude})`;
-  const query = `[out:json][timeout:10];(nwr${around}[amenity=hospital];nwr${around}[healthcare=hospital];);out center tags;`;
+  const query = `[out:json][timeout:8];nwr${around}[amenity=hospital];out center tags;`;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);

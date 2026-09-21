@@ -12,6 +12,7 @@ export const DEMO_LOCATION = { latitude: 12.9716, longitude: 77.5946, label: "De
 type LocationInput = { latitude?: number; longitude?: number; label?: string; source?: "browser" | "demo" | "manual" };
 type RecommendationInput = { rawText: string; patientRelation?: string; location?: LocationInput };
 type FacilityInput = { latitude: number; longitude: number; category?: Recommendation["incident"]["careCategory"] };
+const MAX_TRUSTED_RECOMMENDATION_DISTANCE_KM = 100;
 
 function createRecommendation(input: RecommendationInput, hospitals: Hospital[], doctors: Doctor[]): IncidentRecord {
   const incident = applySafetyRules(parseIncident(input.rawText, input.patientRelation));
@@ -21,7 +22,8 @@ function createRecommendation(input: RecommendationInput, hospitals: Hospital[],
     label: input.location?.label || DEMO_LOCATION.label,
     source: input.location?.source || DEMO_LOCATION.source,
   } as Recommendation["location"];
-  const facilities = rankHospitals(hospitals, incident.careCategory, location.latitude, location.longitude);
+  const facilities = rankHospitals(hospitals, incident.careCategory, location.latitude, location.longitude)
+    .filter(facility => facility.distanceKm <= MAX_TRUSTED_RECOMMENDATION_DISTANCE_KM);
   const recommendedFacility = facilities[0] ?? null;
   const recommendedDoctor = recommendedFacility ? matchDoctor(doctors, recommendedFacility.id, incident.careCategory) : null;
   const now = new Date();
