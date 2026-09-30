@@ -272,7 +272,6 @@ export default function Home() {
 
   const shareLocation = async () => {
     if (!recommendation) return;
-    const facility = recommendation.recommendedFacility;
     const link = getMapsLink();
     if (!link) return;
     const shareData = { title: "CareBridge emergency location", text: `${summaryText}\n\nDirections: ${link}`, url: link };
