@@ -322,7 +322,7 @@ export default function Home() {
       return `https://www.google.com/maps/dir/?api=1&origin=${activeLocation.latitude},${activeLocation.longitude}&destination=${facility.latitude},${facility.longitude}${action}`;
     }
 
-    return `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
+    return `https://www.google.com/maps/search/?api=1&query=hospital%20${activeLocation.latitude},${activeLocation.longitude}`;
   };
 
   const shareLocation = async () => {
