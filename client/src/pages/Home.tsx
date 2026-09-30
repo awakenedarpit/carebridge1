@@ -254,11 +254,27 @@ export default function Home() {
     }
   };
 
+  const getMapsLink = () => {
+    if (!recommendation) return null;
+    const facility = recommendation.recommendedFacility;
+    const activeLocation = location ?? {
+      latitude: recommendation.location.latitude,
+      longitude: recommendation.location.longitude,
+      label: recommendation.location.label,
+    };
+
+    if (facility) {
+      return `https://www.google.com/maps/dir/?api=1&origin=${activeLocation.latitude},${activeLocation.longitude}&destination=${facility.latitude},${facility.longitude}`;
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
+  };
+
   const shareLocation = async () => {
     if (!recommendation) return;
     const facility = recommendation.recommendedFacility;
-    const activeLocation = location ?? DEMO_LOCATION;
-    const link = facility ? `https://www.google.com/maps/dir/?api=1&destination=${facility.latitude},${facility.longitude}` : `https://www.google.com/maps/search/?api=1&query=${activeLocation.latitude},${activeLocation.longitude}`;
+    const link = getMapsLink();
+    if (!link) return;
     const shareData = { title: "CareBridge emergency location", text: `${summaryText}\n\nDirections: ${link}`, url: link };
     await logAction("SHARE_LOCATION");
     try {
@@ -286,11 +302,10 @@ export default function Home() {
   };
 
   const navigateToFacility = async () => {
-    if (!recommendation?.recommendedFacility) return;
+    if (!recommendation) return;
     await logAction("NAVIGATE");
-    const facility = recommendation.recommendedFacility;
-    const activeLocation = location ?? DEMO_LOCATION;
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${activeLocation.latitude},${activeLocation.longitude}&destination=${facility.latitude},${facility.longitude}`, "_blank", "noopener,noreferrer");
+    const link = getMapsLink();
+    if (link) window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const reset = () => {
@@ -439,11 +454,11 @@ function ResultsScreen(props: {
       <div className="mt-6 grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
         <div><div className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.16em] ${urgencyClasses(recommendation.incident.urgency)}`}><Siren size={15} /> {recommendation.incident.urgency}</div><h1 className="mt-4 max-w-xl font-display text-4xl font-semibold leading-tight tracking-[-0.04em] text-[#133b3a] sm:text-6xl">Here is the safest next step.</h1><p className="mt-4 max-w-xl text-base leading-7 text-[#66716e]">Based only on what you reported. This is navigation support, not a diagnosis.</p>
           {recommendation.incident.urgency === "EMERGENCY" && <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#f1b0b2] bg-[#fff2f1] p-4 text-sm font-semibold leading-6 text-[#91363d]"><AlertTriangle size={19} className="mt-1 shrink-0" /><span>{recommendation.incident.safetyNote}</span></div>}
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ActionButton icon={<Phone size={18} />} label="Call doctor" onClick={props.onCallDoctor} disabled={!doctor} /><ActionButton icon={<Siren size={18} />} label="Call 112" onClick={props.onCall112} danger /><ActionButton icon={<Navigation size={18} />} label="Navigate" onClick={props.onNavigate} disabled={!facility} /><ActionButton icon={<Share2 size={18} />} label={props.copied ? "Copied" : "Share"} onClick={props.onShare} /></div>
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ActionButton icon={<Phone size={18} />} label="Call doctor" onClick={props.onCallDoctor} disabled={!doctor} /><ActionButton icon={<Siren size={18} />} label="Call 112" onClick={props.onCall112} danger /><ActionButton icon={<Navigation size={18} />} label={facility ? "Navigate" : "Find hospital"} onClick={props.onNavigate} /><ActionButton icon={<Share2 size={18} />} label={props.copied ? "Copied" : "Share"} onClick={props.onShare} /></div>
           <button className="cb-112-banner mt-4 w-full" onClick={props.onCall112}><span className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><Phone size={18} /></span><span className="flex-1 text-left"><strong className="block text-sm">If there is immediate danger, call 112 now.</strong><span className="text-xs text-white/70">This button opens your phone dialer. It does not simulate a call.</span></span><ArrowRight size={18} /></button>
         </div>
         <div className="rounded-[2rem] border border-[#ded9ce] bg-white p-5 shadow-[0_18px_45px_rgba(34,49,47,0.06)] sm:p-7"><div className="flex items-center justify-between gap-4"><div><div className="cb-eyebrow"><span className="cb-step-dot bg-[#2e8069]" /> Step 2 of 2 · Care connections</div><h2 className="mt-2 font-display text-2xl font-semibold text-[#133b3a]">What to do, where to go</h2></div><div className="rounded-2xl bg-[#e8f0e8] p-3 text-[#2e8069]"><HeartPulse size={22} /></div></div>
-          <div className="mt-6 space-y-3"><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><MapPin size={18} className="mt-1 text-[#2e8069]" /><div className="min-w-0"><p className="cb-mini-heading">WHERE TO GO</p><p className="mt-1 font-semibold text-[#263534]">{facility?.name ?? "Use 112 for the closest emergency facility"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{facility?.address ?? "No verified facility matched this report."}</p>{facility && <p className="mt-2 text-xs font-bold text-[#2e8069]">Approx. {facility.distanceKm.toFixed(1)} km · {formatPhone(facility.phone)}</p>}</div></div></div><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><UserRound size={18} className="mt-1 text-[#2e8069]" /><div className="min-w-0"><p className="cb-mini-heading">WHO CAN HELP</p><p className="mt-1 font-semibold text-[#263534]">{doctor?.name ?? "No verified clinician available"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{doctor ? `${doctor.specialty} · ${doctor.phoneLabel}` : "Use 112 and the emergency facility recommendation."}</p>{doctor && <p className="mt-2 text-xs font-bold text-[#2e8069]">Verified resource · last checked {new Date(doctor.lastVerifiedAt).toLocaleDateString()}</p>}</div></div></div><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><Navigation size={18} className="mt-1 text-[#2e8069]" /><div><p className="cb-mini-heading">HOW TO GET THERE</p><p className="mt-1 font-semibold text-[#263534]">{facility ? "Open Google Maps directions" : "Call 112 for routing support"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{recommendation.location.label}. Navigation uses your chosen location and the trusted facility coordinates.</p></div></div></div></div>
+          <div className="mt-6 space-y-3"><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><MapPin size={18} className="mt-1 text-[#2e8069]" /><div className="min-w-0"><p className="cb-mini-heading">WHERE TO GO</p><p className="mt-1 font-semibold text-[#263534]">{facility?.name ?? "Use 112 for the closest emergency facility"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{facility?.address ?? "No verified facility matched this report."}</p>{facility && <p className="mt-2 text-xs font-bold text-[#2e8069]">Approx. {facility.distanceKm.toFixed(1)} km · {formatPhone(facility.phone)}</p>}</div></div></div><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><UserRound size={18} className="mt-1 text-[#2e8069]" /><div className="min-w-0"><p className="cb-mini-heading">WHO CAN HELP</p><p className="mt-1 font-semibold text-[#263534]">{doctor?.name ?? "No verified clinician available"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{doctor ? `${doctor.specialty} · ${doctor.phoneLabel}` : "Use 112 and the emergency facility recommendation."}</p>{doctor && <p className="mt-2 text-xs font-bold text-[#2e8069]">Verified resource · last checked {new Date(doctor.lastVerifiedAt).toLocaleDateString()}</p>}</div></div></div><div className="rounded-2xl bg-[#f6f5ef] p-4"><div className="flex items-start gap-3"><Navigation size={18} className="mt-1 text-[#2e8069]" /><div><p className="cb-mini-heading">HOW TO GET THERE</p><p className="mt-1 font-semibold text-[#263534]">{facility ? "Open Google Maps directions" : "Find nearby emergency facilities in Google Maps"}</p><p className="mt-1 text-sm leading-6 text-[#6d7774]">{recommendation.location.label}. {facility ? "Navigation uses your chosen location and the trusted facility coordinates." : "No verified facility matched this location, so Google Maps will show nearby emergency hospitals instead. Verify the destination before relying on it."}</p></div></div></div></div>
           {props.offline || recommendation.liveStatusUnavailable ? <div className="mt-4 rounded-xl border border-[#eadcb3] bg-[#fff8df] px-3 py-3 text-xs font-semibold leading-5 text-[#6f5c20]"><WifiOff size={14} className="mr-1 inline" /> {recommendation.fallbackMessage}</div> : null}
         </div>
       </div>
