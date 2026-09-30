@@ -59,6 +59,16 @@ async function startServer() {
     }
   });
 
+  app.get("/api/hospitals/nearby", async (req, res) => {
+    const latitude = numberQuery(req.query.latitude, Number.NaN);
+    const longitude = numberQuery(req.query.longitude, Number.NaN);
+    const limit = Math.min(Math.max(numberQuery(req.query.limit, 8), 1), 20);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ error: "Valid latitude and longitude are required" });
+    }
+    return res.json(await findNearbyHospitals(latitude, longitude, limit));
+  });
+
   app.get("/api/facilities/recommendations", async (req, res) => {
     const latitude = numberQuery(req.query.latitude, 12.9716);
     const longitude = numberQuery(req.query.longitude, 77.5946);
