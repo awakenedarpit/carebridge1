@@ -357,11 +357,42 @@ export default function Home() {
 
   const navigateToHospital = async (hospital?: Hospital | null) => {
     if (!recommendation) return;
-    const target = hospital ?? recommendation.liveFacilities[0] ?? recommendation.recommendedFacility;
+
+    let target = hospital ?? recommendation.liveFacilities[0] ?? null;
+
+    // Do not disable navigation just because the initial live lookup was empty.
+    // Refresh nearby hospitals on demand using the same coordinates.
+    if (!target) {
+      try {
+        const params = new URLSearchParams({
+          latitude: String(recommendation.location.latitude),
+          longitude: String(recommendation.location.longitude),
+          limit: "8",
+        });
+        const nearby = await getJson<Hospital[]>(`/api/hospitals/nearby?${params.toString()}`);
+        target = nearby[0] ?? null;
+      } catch {
+        target = null;
+      }
+    }
+
+    if (!target) {
+      // Last-resort map search: never leave the user with a disabled navigation action.
+      const activeLocation = location ?? {
+        latitude: recommendation.location.latitude,
+        longitude: recommendation.location.longitude,
+        label: recommendation.location.label,
+      };
+      const fallbackLink = `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
+      window.open(fallbackLink, "_blank", "noopener,noreferrer");
+      await logAction("NAVIGATE");
+      return;
+    }
+
     const link = getMapsLink(target, true);
     if (!link) return;
     window.open(link, "_blank", "noopener,noreferrer");
-    await logAction("NAVIGATE", target?.id);
+    await logAction("NAVIGATE", target.id);
   };
 
   const reset = () => {
@@ -524,7 +555,7 @@ function ResultsScreen(props: {
       <div className="mt-6 grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
         <div><div className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.16em] ${urgencyClasses(recommendation.incident.urgency)}`}><Siren size={15} /> {recommendation.incident.urgency}</div><h1 className="mt-4 max-w-xl font-display text-4xl font-semibold leading-tight tracking-[-0.04em] text-[#133b3a] sm:text-6xl">Here is the safest next step.</h1><p className="mt-4 max-w-xl text-base leading-7 text-[#66716e]">Based only on what you reported. This is navigation support, not a diagnosis.</p>
           {recommendation.incident.urgency === "EMERGENCY" && <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#f1b0b2] bg-[#fff2f1] p-4 text-sm font-semibold leading-6 text-[#91363d]"><AlertTriangle size={19} className="mt-1 shrink-0" /><span>{recommendation.incident.safetyNote}</span></div>}
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ActionButton icon={<Phone size={18} />} label="Call doctor" onClick={props.onCallDoctor} disabled={!doctor} /><ActionButton icon={<Siren size={18} />} label="Call 112" onClick={props.onCall112} danger /><ActionButton icon={<Navigation size={18} />} label={recommendation.liveFacilities[0] ? "Navigate nearest" : facility ? "Navigate verified" : "Navigate"} onClick={props.onNavigate} disabled={!recommendation.liveFacilities[0] && !facility} /><ActionButton icon={<Share2 size={18} />} label={props.copied ? "Copied" : "Share"} onClick={props.onShare} /></div>
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"><ActionButton icon={<Phone size={18} />} label="Call doctor" onClick={props.onCallDoctor} disabled={!doctor} /><ActionButton icon={<Siren size={18} />} label="Call 112" onClick={props.onCall112} danger /><ActionButton icon={<Navigation size={18} />} label={recommendation.liveFacilities[0] ? "Navigate nearest" : facility ? "Navigate verified" : "Navigate nearest"} onClick={props.onNavigate} /><ActionButton icon={<Share2 size={18} />} label={props.copied ? "Copied" : "Share"} onClick={props.onShare} /></div>
           <button className="cb-112-banner mt-4 w-full" onClick={props.onCall112}><span className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><Phone size={18} /></span><span className="flex-1 text-left"><strong className="block text-sm">If there is immediate danger, call 112 now.</strong><span className="text-xs text-white/70">This button opens your phone dialer. It does not simulate a call.</span></span><ArrowRight size={18} /></button>
         </div>
         <div className="rounded-[2rem] border border-[#ded9ce] bg-white p-5 shadow-[0_18px_45px_rgba(34,49,47,0.06)] sm:p-7"><div className="flex items-center justify-between gap-4"><div><div className="cb-eyebrow"><span className="cb-step-dot bg-[#2e8069]" /> Step 2 of 2 · Care connections</div><h2 className="mt-2 font-display text-2xl font-semibold text-[#133b3a]">What to do, where to go</h2></div><div className="rounded-2xl bg-[#e8f0e8] p-3 text-[#2e8069]"><HeartPulse size={22} /></div></div>
