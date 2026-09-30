@@ -226,7 +226,7 @@ export default function Home() {
         }
 
         if (finalText.trim()) {
-          setReport(previous => previous ? ${previous} ${finalText.trim()} : finalText.trim());
+          setReport(previous => previous ? `${previous} ${finalText.trim()}` : finalText.trim());
         }
         setInterimSpeech(liveText.trim());
         if (finalText.trim()) {
