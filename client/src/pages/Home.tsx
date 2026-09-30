@@ -358,10 +358,19 @@ export default function Home() {
   const navigateToHospital = async (hospital?: Hospital | null) => {
     if (!recommendation) return;
 
+    const activeLocation = location ?? {
+      latitude: recommendation.location.latitude,
+      longitude: recommendation.location.longitude,
+      label: recommendation.location.label,
+    };
+
+    // Open the Maps tab immediately from the user tap so mobile browsers do not
+    // block it as a popup after the async hospital lookup completes.
+    const fallbackLink = `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
+    const mapsWindow = window.open(fallbackLink, "_blank", "noopener,noreferrer");
+
     let target = hospital ?? recommendation.liveFacilities[0] ?? null;
 
-    // Do not disable navigation just because the initial live lookup was empty.
-    // Refresh nearby hospitals on demand using the same coordinates.
     if (!target) {
       try {
         const params = new URLSearchParams({
@@ -376,23 +385,23 @@ export default function Home() {
       }
     }
 
-    if (!target) {
-      // Last-resort map search: never leave the user with a disabled navigation action.
-      const activeLocation = location ?? {
-        latitude: recommendation.location.latitude,
-        longitude: recommendation.location.longitude,
-        label: recommendation.location.label,
-      };
-      const fallbackLink = `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
-      window.open(fallbackLink, "_blank", "noopener,noreferrer");
-      await logAction("NAVIGATE");
+    if (target) {
+      const link = getMapsLink(target, true);
+      if (link && mapsWindow && !mapsWindow.closed) {
+        mapsWindow.location.href = link;
+      } else if (link && !mapsWindow) {
+        // Popup blockers may still reject a new tab; navigate the current tab
+        // rather than making the action appear to do nothing.
+        window.location.href = link;
+      }
+      await logAction("NAVIGATE", target.id);
       return;
     }
 
-    const link = getMapsLink(target, true);
-    if (!link) return;
-    window.open(link, "_blank", "noopener,noreferrer");
-    await logAction("NAVIGATE", target.id);
+    if (!mapsWindow) {
+      window.location.href = fallbackLink;
+    }
+    await logAction("NAVIGATE");
   };
 
   const reset = () => {
