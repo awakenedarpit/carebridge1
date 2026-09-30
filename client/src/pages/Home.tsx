@@ -39,7 +39,10 @@ type SpeechRecognitionLike = {
   continuous: boolean;
   start: () => void;
   stop: () => void;
-  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult: ((event: {
+    resultIndex?: number;
+    results: ArrayLike<ArrayLike<{ transcript: string; isFinal?: boolean }>>;
+  }) => void) | null;
   onend: (() => void) | null;
   onerror: ((event: { error?: string }) => void) | null;
 };
@@ -93,12 +96,15 @@ export default function Home() {
   const [isLocating, setIsLocating] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState("");
+  const [interimSpeech, setInterimSpeech] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recommendation, setRecommendation] = useState<IncidentRecord | null>(null);
   const [error, setError] = useState("");
   const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
   const [copied, setCopied] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceSessionRef = useRef(false);
+  const voiceRestartTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -109,6 +115,8 @@ export default function Home() {
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      voiceSessionRef.current = false;
+      if (voiceRestartTimerRef.current) window.clearTimeout(voiceRestartTimerRef.current);
       recognitionRef.current?.stop();
     };
   }, []);
@@ -183,52 +191,101 @@ export default function Home() {
 
   const startVoice = () => {
     if (isListening) {
+      voiceSessionRef.current = false;
+      if (voiceRestartTimerRef.current) window.clearTimeout(voiceRestartTimerRef.current);
       recognitionRef.current?.stop();
       setIsListening(false);
+      setInterimSpeech("");
       setVoiceNotice("Voice input stopped. You can edit the text or type instead.");
       return;
     }
+
     const speechWindow = window as WindowWithSpeech;
     const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!Recognition) {
       setVoiceNotice("Voice input is not supported in this browser. Use Chrome or Edge, or type instead.");
       return;
     }
-    const recognition = new Recognition();
-    recognition.lang = "en-IN";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = event => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
-      if (transcript) setReport(previous => previous ? `${previous} ${transcript}` : transcript);
-      setVoiceNotice("Voice captured. You can edit the text before continuing.");
-    };
-    recognition.onend = () => {
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-    recognition.onerror = event => {
-      setIsListening(false);
-      recognitionRef.current = null;
-      const message = event.error === "not-allowed" || event.error === "service-not-allowed"
-        ? "Microphone permission was blocked. Allow microphone access for this site, or type instead."
-        : event.error === "no-speech"
-          ? "No speech was detected. Tap the microphone and speak clearly, or type instead."
+
+    const startRecognition = () => {
+      const recognition = new Recognition();
+      recognition.lang = "en-IN";
+      recognition.interimResults = true;
+      recognition.continuous = true;
+
+      recognition.onresult = event => {
+        let finalText = "";
+        let liveText = "";
+        const startIndex = event.resultIndex ?? 0;
+
+        for (let index = startIndex; index < event.results.length; index += 1) {
+          const result = event.results[index]?.[0];
+          if (!result) continue;
+          if (result.isFinal) finalText += result.transcript;
+          else liveText += result.transcript;
+        }
+
+        if (finalText.trim()) {
+          setReport(previous => previous ? ${previous} ${finalText.trim()} : finalText.trim());
+        }
+        setInterimSpeech(liveText.trim());
+        if (finalText.trim()) {
+          setVoiceNotice("Captured. Keep speaking — your words will be added as you pause.");
+        } else if (liveText.trim()) {
+          setVoiceNotice("Listening…");
+        }
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setInterimSpeech("");
+
+        if (!voiceSessionRef.current) {
+          setIsListening(false);
+          return;
+        }
+
+        voiceRestartTimerRef.current = window.setTimeout(() => {
+          if (!voiceSessionRef.current) return;
+          startRecognition();
+        }, 120);
+      };
+
+      recognition.onerror = event => {
+        if (event.error === "aborted") return;
+        if (event.error === "no-speech" && voiceSessionRef.current) {
+          setVoiceNotice("Still listening… speak whenever you're ready.");
+          return;
+        }
+
+        voiceSessionRef.current = false;
+        setIsListening(false);
+        setInterimSpeech("");
+        recognitionRef.current = null;
+        const message = event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "Microphone permission was blocked. Allow microphone access for this site, or type instead."
           : event.error === "audio-capture"
             ? "No microphone was found. Check your microphone, or type instead."
             : "Voice input could not start. Type instead if needed.";
-      setVoiceNotice(message);
+        setVoiceNotice(message);
+      };
+
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch {
+        recognitionRef.current = null;
+        if (voiceSessionRef.current) {
+          voiceRestartTimerRef.current = window.setTimeout(startRecognition, 250);
+        }
+      }
     };
-    recognitionRef.current = recognition;
+
+    voiceSessionRef.current = true;
     setIsListening(true);
-    setVoiceNotice("Listening… speak now. You can stop and edit the text at any time.");
-    try {
-      recognition.start();
-    } catch {
-      setIsListening(false);
-      recognitionRef.current = null;
-      setVoiceNotice("Voice input could not start. Allow microphone access or type instead.");
-    }
+    setInterimSpeech("");
+    setVoiceNotice("Listening… speak naturally. You do not need to keep one continuous sentence.");
+    startRecognition();
   };
 
   const submitIncident = async (text = report) => {
@@ -351,6 +408,7 @@ export default function Home() {
             patientRelation={patientRelation}
             setPatientRelation={setPatientRelation}
             isListening={isListening}
+            interimSpeech={interimSpeech}
             isSubmitting={isSubmitting}
             onVoice={startVoice}
             onSubmit={() => submitIncident()}
@@ -417,7 +475,7 @@ function ReadyScreen({ onStart, onDemo }: { onStart: () => void; onDemo: () => v
 
 function ReportScreen(props: {
   report: string; setReport: (value: string) => void; patientRelation: string; setPatientRelation: (value: string) => void;
-  isListening: boolean; isSubmitting: boolean; onVoice: () => void; onSubmit: () => void; onUseDemo: () => void; onBack: () => void;
+  isListening: boolean; interimSpeech: string; isSubmitting: boolean; onVoice: () => void; onSubmit: () => void; onUseDemo: () => void; onBack: () => void;
   location: LocationState | null; locationNotice: string; isLocating: boolean; onLocation: () => void; voiceNotice: string; error: string;
 }) {
   return (
@@ -429,6 +487,7 @@ function ReportScreen(props: {
         <div className="mt-2 flex flex-wrap gap-2">{["Father", "Mother", "Child", "Myself", "Someone else"].map(option => <button key={option} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${props.patientRelation === option ? "border-[#133b3a] bg-[#133b3a] text-white" : "border-[#d9d5cc] bg-[#faf9f5] text-[#5e6a67] hover:border-[#94aaa0]"}`} onClick={() => props.setPatientRelation(option)}>{option}</button>)}</div>
         <label className="cb-label mt-7 block" htmlFor="incident-report">Describe the concern</label>
         <div className="relative mt-2"><textarea id="incident-report" value={props.report} onChange={event => props.setReport(event.target.value)} placeholder="For example: Mere father ko saans lene mein bahut dikkat hai aur chest mein pain hai." className="min-h-44 w-full resize-none rounded-2xl border border-[#d9d5cc] bg-[#faf9f5] px-4 py-4 pr-16 text-base leading-7 text-[#202b2c] outline-none transition placeholder:text-[#9aa09b] focus:border-[#568a78] focus:ring-4 focus:ring-[#568a78]/10" />
+          {props.interimSpeech && <div className="pointer-events-none absolute bottom-3 left-4 right-16 rounded-xl bg-white/90 px-3 py-2 text-sm italic text-[#81908a] shadow-sm backdrop-blur-sm">"{props.interimSpeech}"</div>}
           <button className={`absolute bottom-4 right-4 grid h-11 w-11 place-items-center rounded-full ${props.isListening ? "bg-[#e8505b] text-white" : "bg-[#dcebe0] text-[#286252]"}`} onClick={props.onVoice} aria-label={props.isListening ? "Stop listening" : "Speak your concern"}>{props.isListening ? <StopCircle size={20} /> : <Mic size={20} />}</button>
         </div>
         <div className="mt-3 flex items-start gap-2 text-xs font-semibold text-[#79827f]"><Mic size={14} className="mt-0.5 shrink-0" /><span>{props.voiceNotice || "Voice works in supported browsers over HTTPS. Allow microphone access when prompted."} · <button onClick={() => document.getElementById("incident-report")?.focus()} className="text-[#2e8069]">Type instead</button></span></div>
