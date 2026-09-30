@@ -355,7 +355,7 @@ export default function Home() {
     }
   };
 
-  const navigateToHospital = async (hospital?: Hospital | null) => {
+  const navigateToHospital = (hospital?: Hospital | null) => {
     if (!recommendation) return;
 
     const activeLocation = location ?? {
@@ -364,44 +364,18 @@ export default function Home() {
       label: recommendation.location.label,
     };
 
-    // Open the Maps tab immediately from the user tap so mobile browsers do not
-    // block it as a popup after the async hospital lookup completes.
+    // Keep this navigation completely synchronous with the user's tap.
+    // This avoids mobile popup blockers and guarantees that Navigate nearest
+    // always opens a Maps search, even if the nearby-hospital API is slow or
+    // unavailable.
     const fallbackLink = `https://www.google.com/maps/search/?api=1&query=emergency%20hospital%20near%20${activeLocation.latitude},${activeLocation.longitude}`;
-    const mapsWindow = window.open(fallbackLink, "_blank", "noopener,noreferrer");
+    const mapsLink = hospital ? getMapsLink(hospital, true) : fallbackLink;
 
-    let target = hospital ?? recommendation.liveFacilities[0] ?? null;
-
-    if (!target) {
-      try {
-        const params = new URLSearchParams({
-          latitude: String(recommendation.location.latitude),
-          longitude: String(recommendation.location.longitude),
-          limit: "8",
-        });
-        const nearby = await getJson<Hospital[]>(`/api/hospitals/nearby?${params.toString()}`);
-        target = nearby[0] ?? null;
-      } catch {
-        target = null;
-      }
+    if (mapsLink) {
+      window.location.assign(mapsLink);
     }
 
-    if (target) {
-      const link = getMapsLink(target, true);
-      if (link && mapsWindow && !mapsWindow.closed) {
-        mapsWindow.location.href = link;
-      } else if (link && !mapsWindow) {
-        // Popup blockers may still reject a new tab; navigate the current tab
-        // rather than making the action appear to do nothing.
-        window.location.href = link;
-      }
-      await logAction("NAVIGATE", target.id);
-      return;
-    }
-
-    if (!mapsWindow) {
-      window.location.href = fallbackLink;
-    }
-    await logAction("NAVIGATE");
+    void logAction("NAVIGATE", hospital?.id);
   };
 
   const reset = () => {
